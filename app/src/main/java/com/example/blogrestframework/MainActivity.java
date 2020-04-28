@@ -28,7 +28,9 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity {
+    // All posts, key is Post.id
     HashMap<Integer, Post> posts;
+    // All profiles, key is Profile.owner.id
     HashMap<Integer, Profile> profiles;
 
     private static final int PERMISSION_REQUEST_CODE = 1000;

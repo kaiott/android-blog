@@ -1,8 +1,6 @@
 package com.example.blogrestframework;
 
 import android.content.Context;
-
-import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,9 +12,11 @@ import androidx.annotation.NonNull;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.recyclerview.widget.RecyclerView;
 
-
 import com.squareup.picasso.Picasso;
 
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -34,8 +34,8 @@ public class PostTileAdapter extends RecyclerView.Adapter<PostTileAdapter.EventV
         context = ct;
         this.posts = new ArrayList<>();
         this.posts.addAll(posts);
-        Collections.sort(this.posts);
-        Collections.reverse(this.posts);
+        Collections.sort(this.posts, Collections.reverseOrder());
+        //Collections.reverse(this.posts);
         this.profiles = profiles;
     }
 
@@ -53,11 +53,42 @@ public class PostTileAdapter extends RecyclerView.Adapter<PostTileAdapter.EventV
         holder.titleText.setText(p.getTitle());
         holder.contentText.setText(p.getContent());
         holder.authorText.setText(String.format(Locale.ENGLISH, "Author: %d", p.getAuthorId()));
-        holder.datePostedText.setText(p.getDatePosted().toString().substring(0, 16));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd LLL yyyy");
+        OffsetDateTime now = OffsetDateTime.now();
+        Duration duration = Duration.between(p.getDatePosted(), now);
+        String posted;
+    Log.i("TAG", "onBindViewHolder: duration = " + duration.getSeconds() + " secs");
+        if (duration.getSeconds() < 5) {
+            posted = "just now";
+        }
+        else if (duration.getSeconds() < 60) {
+            posted = duration.getSeconds() + " seconds ago";
+        }
+        else if (duration.toMinutes() < 60) {
+            posted = duration.toMinutes() + " minutes ago";
+        }
+        else if (duration.toHours() < 24 ) {
+            posted = duration.toHours() + " hours ago";
+        }
+        else {
+            posted = p.getDatePosted().format(formatter);
+        }
+        //holder.datePostedText.setText(p.getDatePosted().toString().substring(0, 16));
+        holder.datePostedText.setText(posted);
         if (profiles.containsKey(p.authorId)) {
             Log.i("TAG", "onBindViewHolder: the url for profile " + p.authorId + " is " + profiles.get(p.authorId).imageUrl);
             String imageUrl = "http://www.angri.li/" + profiles.get(p.authorId).imageUrl;
-            Picasso.get().load(imageUrl).fit().centerCrop().into(holder.authorImage);
+
+            Picasso.get()
+                    .load(imageUrl)
+                    //.resizeDimen(R.dimen.image_size, R.dimen.image_size) // fit already does this
+                    //.onlyScaleDown()
+                    .placeholder(R.drawable.ic_launcher_foreground)
+                    .error(R.drawable.ic_launcher_background)
+                    .fit()
+                    .centerCrop()
+                    .into(holder.authorImage);
+
             holder.authorText.setText(profiles.get(p.authorId).username);
         }
         else {
