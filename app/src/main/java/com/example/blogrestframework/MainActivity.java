@@ -18,6 +18,7 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
+import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 
 import org.json.JSONArray;
@@ -26,12 +27,18 @@ import org.json.JSONObject;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.Map;
+
+import javax.security.auth.login.LoginException;
 
 public class MainActivity extends AppCompatActivity {
     // All posts, key is Post.id
     HashMap<Integer, Post> posts;
     // All profiles, key is Profile.owner.id
     HashMap<Integer, Profile> profiles;
+
+    static String refreshToken;
+    static String accessToken;
 
     private static final int PERMISSION_REQUEST_CODE = 1000;
     @Override
@@ -56,14 +63,44 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         profiles = new HashMap<>();
         posts = new HashMap<>();
-        downloadPosts(15);
-        downloadProfiles(-1);
+        authenticate("TestUser", "Nqwc2FUpyXNqzs");
+        //downloadPosts(15);
+        //downloadProfiles(-1);
 
         /*if(ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] {}, PERMISSION_REQUEST_CODE);
         }*/
+    }
+
+    private void authenticate(String username, String password) {
+        String URL = "http://www.angri.li/api/token/";
+        Map<String, String> params = new HashMap<String, String>();
+        params.put("username", username);
+        params.put("password", password);
+        JSONObject jsonObj = new JSONObject(params);
+        RequestQueue requestQueue = Volley.newRequestQueue(this);
+        JsonObjectRequest objectRequest = new JsonObjectRequest(
+                Request.Method.POST,
+                URL,
+                jsonObj,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        Log.i("Rest Response", response.toString());
+                        updateUI();
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Log.i("TAG", "onErrorResponse: FAAAAILLLL");
+                        Log.e("Rest Response", error.toString());
+                    }
+                }
+        );
+        requestQueue.add(objectRequest);
     }
 
     private void downloadProfiles(int maxCount) {
