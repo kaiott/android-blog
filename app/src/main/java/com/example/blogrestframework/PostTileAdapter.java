@@ -57,7 +57,6 @@ public class PostTileAdapter extends RecyclerView.Adapter<PostTileAdapter.EventV
         OffsetDateTime now = OffsetDateTime.now();
         Duration duration = Duration.between(p.getDatePosted(), now);
         String posted;
-    Log.i("TAG", "onBindViewHolder: duration = " + duration.getSeconds() + " secs");
         if (duration.getSeconds() < 5) {
             posted = "just now";
         }
@@ -76,7 +75,6 @@ public class PostTileAdapter extends RecyclerView.Adapter<PostTileAdapter.EventV
         //holder.datePostedText.setText(p.getDatePosted().toString().substring(0, 16));
         holder.datePostedText.setText(posted);
         if (profiles.containsKey(p.authorId)) {
-            Log.i("TAG", "onBindViewHolder: the url for profile " + p.authorId + " is " + profiles.get(p.authorId).imageUrl);
             String imageUrl = "http://www.angri.li/" + profiles.get(p.authorId).imageUrl;
 
             Picasso.get()

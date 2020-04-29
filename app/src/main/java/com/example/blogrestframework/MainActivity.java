@@ -8,9 +8,13 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import com.android.volley.Request;
@@ -29,13 +33,14 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.security.auth.login.LoginException;
 
 public class MainActivity extends AppCompatActivity {
     // All posts, key is Post.id
     HashMap<Integer, Post> posts;
     // All profiles, key is Profile.owner.id
     HashMap<Integer, Profile> profiles;
+
+    static final String TAG = "MainActivity";
 
     static String refreshToken;
     static String accessToken;
@@ -63,44 +68,19 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         profiles = new HashMap<>();
         posts = new HashMap<>();
-        authenticate("TestUser", "Nqwc2FUpyXNqzs");
-        //downloadPosts(15);
-        //downloadProfiles(-1);
-
-        /*if(ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] {}, PERMISSION_REQUEST_CODE);
-        }*/
-    }
-
-    private void authenticate(String username, String password) {
-        String URL = "http://www.angri.li/api/token/";
-        Map<String, String> params = new HashMap<String, String>();
-        params.put("username", username);
-        params.put("password", password);
-        JSONObject jsonObj = new JSONObject(params);
-        RequestQueue requestQueue = Volley.newRequestQueue(this);
-        JsonObjectRequest objectRequest = new JsonObjectRequest(
-                Request.Method.POST,
-                URL,
-                jsonObj,
-                new Response.Listener<JSONObject>() {
-                    @Override
-                    public void onResponse(JSONObject response) {
-                        Log.i("Rest Response", response.toString());
-                        updateUI();
-                    }
-                },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        Log.i("TAG", "onErrorResponse: FAAAAILLLL");
-                        Log.e("Rest Response", error.toString());
-                    }
-                }
-        );
-        requestQueue.add(objectRequest);
+        refreshToken = getSharedPreferences(LoginActivity.tokenSharedPreferencesName, MODE_PRIVATE).getString("refreshToken", null);
+        accessToken = getSharedPreferences(LoginActivity.tokenSharedPreferencesName, MODE_PRIVATE).getString("accessToken", null);
+        if (refreshToken != null && accessToken != null) {
+            Log.i(TAG, "onCreate: we have tokens");
+            Log.i(TAG, "onCreate: refreshToken = " + refreshToken);
+            Log.i(TAG, "onCreate: accessToken = " + accessToken);
+            downloadPosts(15);
+            downloadProfiles(-1);
+        }
+        else {
+            Log.e(TAG, "onCreate: there are no tokens");
+            makeGoToLoginAlert().show();
+        }
     }
 
     private void downloadProfiles(int maxCount) {
@@ -125,9 +105,17 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         Log.e("Rest Response", error.toString());
+                        refreshAndRepeat();
                     }
                 }
-        );
+        )  {
+            @Override
+            public Map<String, String> getHeaders() {
+                Map<String, String>  params = new HashMap<>();
+                params.put("Authorization", "Bearer " + accessToken);
+                return params;
+            }
+        };
         requestQueue.add(objectRequest);
     }
 
@@ -153,9 +141,17 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         Log.e("Rest Response", error.toString());
+                        refreshAndRepeat();
                     }
                 }
-        );
+        ) {
+            @Override
+            public Map<String, String> getHeaders() {
+                Map<String, String>  params = new HashMap<>();
+                params.put("Authorization", "Bearer " + accessToken);
+                return params;
+            }
+        };
         requestQueue.add(objectRequest);
     }
 
@@ -177,10 +173,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         Log.i("Main", "parseJson: number of posts = " + result.size());
-        for (Post post : result.values()) {
-            Log.i("Main", "parseJson: Post: " + post.id + " \r\n" + post.title +
-                    " \r\n" + post.content + " \r\n" + post.datePosted + " \r\n" + post.authorId + " \r\n" );
-        }
         return result;
     }
 
@@ -208,11 +200,73 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         Log.i("Main", "parseJson: number of posts = " + result.size());
-        for (Profile profile : result.values()) {
-            Log.i("Main", "parseJson: Profile: " + profile.id + " \r\n" + profile.userId +
-                    " \r\n" + profile.username + " \r\n" + profile.imageUrl + " \r\n" );
-        }
         return result;
+    }
+
+    protected AlertDialog makeGoToLoginAlert() {
+        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+        builder.setTitle("You are not logged in")
+                .setMessage("To see the latest posts please go to the login page and log in with your credentials")
+                .setPositiveButton("Login", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        logout(null);
+                    }
+                })
+                .setCancelable(false);
+        return builder.create();
+    }
+
+    public void logout(View view) {
+        // Clearing tokens
+        getSharedPreferences(LoginActivity.tokenSharedPreferencesName, MODE_PRIVATE).edit().clear().apply();
+        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
+    }
+
+    public void refreshAndRepeat() {
+        String URL = "http://www.angri.li/api/token/refresh/";
+        Map<String, String> params = new HashMap<>();
+        params.put("refresh", refreshToken);
+        JSONObject jsonObj = new JSONObject(params);
+        RequestQueue requestQueue = Volley.newRequestQueue(this);
+        JsonObjectRequest objectRequest = new JsonObjectRequest(
+                Request.Method.POST,
+                URL,
+                jsonObj,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        Log.i("Rest Response", response.toString());
+                        try {
+                            accessToken = response.getString("access");
+                            Log.i(TAG, "onResponse: got new access token: " + accessToken);
+                            getSharedPreferences(LoginActivity.tokenSharedPreferencesName, MODE_PRIVATE)
+                                    .edit()
+                                    .putString("accessToken", accessToken)
+                                    .apply();
+                            downloadPosts(15);
+                            downloadProfiles(-1);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                            Log.e(TAG, "onResponse: didn't get new access token, need to log in again");
+                            makeGoToLoginAlert();
+                        }
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Log.e("Rest Response", error.toString());
+                        Log.e(TAG, "onResponse: didn't get new access token, need to log in again");
+                        makeGoToLoginAlert();
+                    }
+                }
+        );
+        requestQueue.add(objectRequest);
     }
 
 }

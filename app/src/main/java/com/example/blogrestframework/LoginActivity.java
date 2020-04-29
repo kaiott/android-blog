@@ -24,12 +24,19 @@ import java.util.Map;
 
 public class LoginActivity extends AppCompatActivity {
 
+    public static final String tokenSharedPreferencesName = "tokens";
     EditText usernameText, passwordText;
+    String refreshToken, accessToken;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+        refreshToken = getSharedPreferences(tokenSharedPreferencesName, MODE_PRIVATE).getString("refreshToken", null);
+        accessToken = getSharedPreferences(tokenSharedPreferencesName, MODE_PRIVATE).getString("accessToken", null);
+        if (refreshToken != null && accessToken != null) {
+            goToMainActivity();
+        }
         usernameText = findViewById(R.id.usernameText);
         passwordText = findViewById(R.id.passwordText);
     }
@@ -45,7 +52,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void authenticate(String username, String password) {
         String URL = "http://www.angri.li/api/token/";
-        Map<String, String> params = new HashMap<String, String>();
+        Map<String, String> params = new HashMap<>();
         params.put("username", username);
         params.put("password", password);
         JSONObject jsonObj = new JSONObject(params);
@@ -59,13 +66,14 @@ public class LoginActivity extends AppCompatActivity {
                     public void onResponse(JSONObject response) {
                         Log.i("Rest Response", response.toString());
                         try {
-                            String refreshToken = response.getString("refresh");
-                            String accessToken = response.getString("access");
-                            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                            intent.putExtra("refreshToken", refreshToken);
-                            intent.putExtra("accessToken", accessToken);
-                            startActivity(intent);
-                            finish();
+                            refreshToken = response.getString("refresh");
+                            accessToken = response.getString("access");
+                            getSharedPreferences(tokenSharedPreferencesName, MODE_PRIVATE)
+                                    .edit()
+                                    .putString("refreshToken", refreshToken)
+                                    .putString("accessToken", accessToken)
+                                    .apply();
+                            goToMainActivity();
                         } catch (JSONException e) {
                             e.printStackTrace();
                             makeNotSuccessfulToast();
@@ -85,5 +93,12 @@ public class LoginActivity extends AppCompatActivity {
 
     public void makeNotSuccessfulToast() {
         Toast.makeText(this, "Login did not succeed, try again", Toast.LENGTH_SHORT).show();
+    }
+
+    public void goToMainActivity() {
+        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
     }
 }
